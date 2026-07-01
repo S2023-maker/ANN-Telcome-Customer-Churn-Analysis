@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import joblib
 import json
-from tensorflow import keras
+import onnxruntime as rt
 
 # ─── Page config ────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -115,7 +115,7 @@ st.markdown("""
 def load_artifacts():
     preprocessor = joblib.load("artifacts/preprocessor.joblib")
     le           = joblib.load("artifacts/label_encoder.joblib")
-    model        = keras.models.load_model("artifacts/churn_model.keras")
+    model        = rt.InferenceSession("artifacts/churn_model.onnx")
     with open("artifacts/metadata.json") as f:
         meta = json.load(f)
     return preprocessor, le, model, meta
@@ -135,8 +135,8 @@ except Exception as e:
 st.markdown("""
 <div class="header-box">
     <h1>📡 Telecom Churn Predictor</h1>
-    <p>Enter customer details to predict whether they are likely to churn. 
-    Model: ANN (TensorFlow/Keras) · Binary classification · Threshold-tuned for recall.</p>
+    <p>Enter customer details to predict whether they are likely to churn.
+    Model: ANN · Binary classification · Threshold-tuned for recall.</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -219,7 +219,6 @@ st.markdown("")
 predict_btn = st.button("🔍 Predict Churn")
 
 if predict_btn:
-    # Build the raw DataFrame in the same column order/names as X
     input_data = pd.DataFrame([{
         "state":               state,
         "city":                city,
@@ -241,13 +240,14 @@ if predict_btn:
         "paperless_billing":   paperless_billing,
         "payment_method":      payment_method,
         "monthly_charges":     monthly_charges,
-        "total_charges":       str(total_charges),   # kept as object during preprocessing
+        "total_charges":       str(total_charges),
     }])
 
     try:
-        X_processed = preprocessor.transform(input_data)
-        prob        = float(model.predict(X_processed, verbose=0).ravel()[0])
-        label       = "Yes" if prob >= threshold else "No"
+        X_processed  = preprocessor.transform(input_data).astype(np.float32)
+        input_name   = model.get_inputs()[0].name
+        prob         = float(model.run(None, {input_name: X_processed})[0].ravel()[0])
+        label        = "Yes" if prob >= threshold else "No"
 
         st.markdown("---")
         st.markdown('<div class="section-title">Prediction Result</div>', unsafe_allow_html=True)
@@ -284,7 +284,6 @@ if predict_btn:
             """, unsafe_allow_html=True)
 
         with rcol2:
-            # Probability gauge using a simple progress bar + context
             st.markdown("**Probability Breakdown**")
             st.progress(prob)
 
@@ -318,11 +317,11 @@ if predict_btn:
         <div class="info-banner">
             ℹ️ Predictions use a tuned threshold of {threshold:.2f} (instead of the default 0.5) to maximise recall on at-risk customers.
             Model test accuracy: {test_acc:.2%} · Test AUC: {test_auc:.4f}.
-            A "High Churn Risk" flag means roughly 1 in 2 flagged customers actually churns (precision ~0.52), 
+            A "High Churn Risk" flag means roughly 1 in 2 flagged customers actually churns (precision ~0.52),
             while catching ~75% of all true churners (recall ~0.75).
         </div>
         """, unsafe_allow_html=True)
 
     except Exception as e:
         st.error(f"Prediction failed: {e}")
-        st.info("Make sure the column names and categories in the input match what the model was trained on. Check `metadata.json` for the expected feature columns.")
+        st.info("Make sure the column names and categories in the input match what the model was trained on.")
