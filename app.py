@@ -244,7 +244,10 @@ if predict_btn:
     }])
 
     try:
-        X_processed  = preprocessor.transform(input_data).astype(np.float32)
+        X_processed = preprocessor.transform(input_data)
+        if hasattr(X_processed, "toarray"):
+            X_processed = X_processed.toarray()
+        X_processed = X_processed.astype(np.float32)
         input_name   = model.get_inputs()[0].name
         prob         = float(model.run(None, {input_name: X_processed})[0].ravel()[0])
         label        = "Yes" if prob >= threshold else "No"
