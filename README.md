@@ -3,6 +3,7 @@
 A machine learning web application that predicts whether a telecom customer is likely to churn, built with an Artificial Neural Network (ANN) and deployed using Streamlit.
 
 🔗 **Live App**: https://ann-telcome-customer-churn-analysis-j7ypkn7w7pcm3d5ek3otbi.streamlit.app/
+**Screenshot**: <img width="1806" height="860" alt="image" src="https://github.com/user-attachments/assets/ed209018-45d4-4538-99cb-ed5f410747ac" />
 
 ---
 
